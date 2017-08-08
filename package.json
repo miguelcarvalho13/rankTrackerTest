@@ -1,0 +1,14 @@
+{
+  "name": "geo_ranker_report",
+  "version": "0.0.1",
+  "description": "A simple test with the GeoRanker API.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Miguel Carvalho",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.15.3"
+  }
+}

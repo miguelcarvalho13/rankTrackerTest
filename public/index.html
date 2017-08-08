@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GeoRanker</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.red-deep_purple.min.css"/>
+    <script src="https://unpkg.com/vue"></script>
+
+    <!-- our css, move out later -->
+    <style>
+      body {
+        background-color: #EEEEEE;
+      }
+
+      body, td, tr, th, span, label, input, textarea, select, option {
+        font-family: 'Roboto', 'Helvetica', sans-serif;
+      }
+
+      .full-width {
+        width: 100%;
+      }
+
+      .md-select>select {
+        width: 100%;
+        border: none;
+        padding-top: 20px;
+        padding-bottom: 5px;
+        background-color: rgb(255,255,255);
+        border-bottom: solid 1px rgba(0,0,0,0.12);
+        color: rgba(0,0,0,0.54);
+        outline: none;
+        font-size: 16px;
+      }
+
+      .md-select>select:focus {
+        color: rgba(0,0,0,0.87);
+        padding-bottom: 4px;
+        border-bottom: solid 2px rgb(244,67,54);
+      }
+
+      .md-select>select:disabled {
+        color: rgba(0,0,0,0.26);
+        border-bottom: dotted 1px rgba(0,0,0,0.12);
+      }
+
+      .md-select>select:focus ~ span {
+        color: rgb(244,67,54);
+      }
+
+      .md-select>span {
+        width: 100%;
+        color: rgba(0,0,0,0.38);
+        font-size: 12px;
+        position: absolute;
+      }
+
+      .padding-left-8px {
+        padding-left: 8px;
+      }
+
+      .padding-right-8px {
+        padding-right: 8px;
+      }
+    </style>
+  </head>
+  <body onload="initialize();">
+    <div id="vue-root-element">
+      <div class="mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet"></div>
+        <div class="mdl-cell mdl-cell--8-col mdl-cell--12-col-tablet">
+
+          <div class="mdl-card mdl-shadow--2dp full-width">
+            <div class="mdl-card__title">
+              <h2 class="mdl-card__title-text">Create a new Rank Tracker Report</h2>
+            </div>
+            <div class="mdl-card__supporting-text">
+              
+              <div class="mdl-grid mdl-grid--no-spacing">
+
+                <div class="mdl-cell mdl-cell--6-col padding-right-8px">
+                  <!-- Keywords -->
+                  <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label full-width">
+                    <textarea class="mdl-textfield__input" type="text" rows= "3" id="inputKeywords" ></textarea>
+                    <label class="mdl-textfield__label" for="inputKeywords">Type the keywords (one keyword per line)</label>
+                  </div>
+                </div>
+                
+                <div class="mdl-cell mdl-cell--6-col padding-left-8px">
+                  <!-- URLs -->
+                  <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label full-width">
+                    <textarea class="mdl-textfield__input" type="text" rows= "3" id="inputURLs" ></textarea>
+                    <label class="mdl-textfield__label" for="inputURLs">Type the URLs (one keyword per line)</label>
+                  </div>
+                </div>
+
+                <div class="mdl-cell mdl-cell--12-col">
+                  <div class="md-select full-width">
+                    <span>Search engines</span>
+                    <select id="selectEngines">
+                      <option v-for="engine in searchengines" v-bind:value="engine.name">
+                        {{ engine.name }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mdl-card__actions mdl-card--border">
+              <a class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect" onclick="onButtonCreateClick(event);">
+                CREATE
+              </a>
+            </div>
+          </div>
+
+          <h4>RankTracker reports</h4>
+
+          <!-- report list -->
+          <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp full-width">
+            <thead>
+              <tr>
+                <th class="mdl-data-table__cell--non-numeric">URL</th>
+                <th class="mdl-data-table__cell--non-numeric">keywords</th>
+                <th class="mdl-data-table__cell--non-numeric">Search engines</th>
+                <th class="mdl-data-table__cell--non-numeric">Country</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="report in reportList">
+                <td class="mdl-data-table__cell--non-numeric">{{ report.urls.map(function(x){return x.url}).join(', ') }}</td>
+                <td class="mdl-data-table__cell--non-numeric">{{ report.keywords.join(', ') }}</td>
+                <td class="mdl-data-table__cell--non-numeric">{{ report.searchengines.join(', ') }}</td>
+                <td class="mdl-data-table__cell--non-numeric">{{ report.countries.join(', ') }}</td>
+                <td>{{ formatDate(stringToDate(report.date_created)) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet"></div>
+      </div>
+
+      <!-- the toast to show when the system gives feedback to the user -->
+      <div id="toast" class="mdl-js-snackbar mdl-snackbar">
+        <div class="mdl-snackbar__text"></div>
+        <button class="mdl-snackbar__action" type="button"></button>
+      </div>
+    </div>
+    
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- our script, move out later -->
+    <script>
+      var API_KEY = '2f1df32eeda08a9d39e044012e5e684f';
+      var USER_EMAIL = 'miguel.carvalho13@outlook.com';
+      var sessionId;
+      var vueApp;
+
+      function initialize()
+      {
+        // initializes the vue instance
+        vueApp = new Vue(
+        {
+          el: '#vue-root-element',
+          data: 
+          {
+            searchengines: [
+              {"id":0,"name":"google"},
+              {"id":1,"name":"googlelocal"},
+              {"id":2,"name":"yahoo"},
+              {"id":3,"name":"bing"},
+              {"id":4,"name":"yandex"},
+              {"id":5,"name":"youtube"},
+              {"id":6,"name":"naverwebdocs"},
+              {"id":7,"name":"naverlocal"},
+              {"id":8,"name":"baidu"},
+              {"id":9,"name":"googlenews"},
+              {"id":10,"name":"googleimages"}
+            ],
+            reportList: []
+          },
+          methods:
+          {
+            formatDate: function(date)
+            {
+              return date.toLocaleDateString() + 
+                      " " +
+                      (date.getHours() < 10 ? "0":"") + date.getHours() +
+                      ":" +
+                      (date.getMinutes() < 10 ? "0":"") + date.getMinutes();
+            },       
+            stringToDate: function(dateString)
+            {
+              return new Date(Date.parse(dateString));
+            }
+          }
+        });
+
+        // tries to create the user session and then, if succeded, keep getting the report list
+        // every 2 seconds
+        tryCreateUserSession(API_KEY, USER_EMAIL, function(apiKey, userEmail, currentSessionId)
+        {
+          getReportList(apiKey, userEmail, currentSessionId);
+          setInterval(function()
+          {
+            getReportList(apiKey, userEmail, currentSessionId);
+          }, 2000);
+        });
+      }
+
+      /**
+       * Clears all the fields in the creation report form
+       */
+      function clearFields()
+      {
+        document.getElementById("inputKeywords").parentElement.MaterialTextfield.change('');
+        document.getElementById("inputURLs").parentElement.MaterialTextfield.change('');
+      }
+
+      /**
+       * Gets a list of reports with the given apiKey, user email and
+       * the current session of the user
+       */
+      function getReportList(apiKey, userEmail, currentSessionId)
+      {
+        // in case there is no session
+        if(!verifySessionId(currentSessionId))
+        {
+          tryCreateUserSession(apiKey, userEmail, getReportList);
+          return;
+        }
+
+        // do the request
+        axios.get('https://api.georanker.com/v1/report/list.json?',
+          {
+            params:
+            {
+              email: userEmail,
+              apikey: apiKey
+            }
+          })
+          .then(function (response) 
+          {
+              vueApp.reportList = response.data.items;
+          })
+          .catch(function (error) 
+          {
+            console.log(error);
+            showToast('Couldn\'t get the report list, try reload the page');
+          });
+      }
+
+      function getValuesInTextArea(elementId)
+      {
+        return document.getElementById(elementId).value.split(/\r?\n/g);
+      }
+
+      function getValueInSelect(elementId)
+      {
+        var element = document.getElementById(elementId);
+        return element.options[element.selectedIndex].value;
+      }
+
+      function onButtonCreateClick(event)
+      {
+        if(event.target.parentElement.getAttribute('disabled')) return;
+        if(!validateCreationForm())
+        {
+          showToast('The fields must be filled');
+          return;
+        }
+
+        var parameters = 
+        {
+          urls: getValuesInTextArea('inputURLs'),
+          keywords: getValuesInTextArea('inputKeywords'),
+          searchengine: getValueInSelect('selectEngines')
+        };
+
+        console.log(parameters);
+
+        
+        event.target.parentElement.setAttribute('disabled', true);
+        tryCreateReport(USER_EMAIL, sessionId, parameters, function()
+        {
+          event.target.parentElement.setAttribute('disabled', false);
+        });
+      }
+
+      /**
+       * Tries create a new report with the GeoRanker API.
+       */
+      function tryCreateReport(userEmail, currentSessionId, parameters, callbackFunction)
+      {
+        // do the request
+        axios.post('https://api.georanker.com/v1/report/new.json?',
+          {
+            params:
+            {
+              email: userEmail,
+              session: currentSessionId
+            },
+            searchengines: [parameters.searchengine],
+            type: 'ranktracker',
+            countries: 'BR',
+            urls: parameters.urls,
+            keywords: parameters.keywords
+          })
+          .then(function (response) 
+          {
+            clearFields();
+            showToast('The report was successfully created!');
+            if(callbackFunction) callbackFunction();
+          })
+          .catch(function (error) 
+          {
+            console.log(error);
+            showToast('Couldn\'t create the report, try reload the page');
+          });
+      }
+
+      /**
+       * Tries to create a new user session with the given apiKey, user email and
+       * an optional callback function to be called when the session is successfully 
+       * created
+       * 
+       * The callback function must know that the first three parameters are respectively
+       * the apiKey, the user email and the new sessionId returned.
+       */ 
+      function tryCreateUserSession(apiKey, userEmail, callbackFunction)
+      {
+        axios.get('https://api.georanker.com/v1/api/login.json?',
+          {
+            params:
+            {
+              email: userEmail,
+              apikey: apiKey
+            }
+          })
+          .then(function (response) 
+          {
+            try
+            {
+              var jsonResponse = response.data;
+              sessionId = jsonResponse.session;
+              if(callbackFunction) callbackFunction(apiKey, userEmail, jsonResponse.session);
+            }
+            catch(error) 
+            {
+              console.log(error);
+              showToast('Something wrong ocurred, trying to login again...');
+              setTimeout(function()
+              {
+                tryCreateUserSession(apiKey, userEmail, callbackFunction);
+              }, 7000);
+            }
+          })
+          .catch(function (error) 
+          {
+            console.log(error);
+            showToast('Couldn\'t login with the user credentials, try reload the page');
+          });
+      }
+
+      /**
+       * Verifies if the given sessionId is a valid session
+       */
+      function verifySessionId(currentSessionId)
+      {
+        if(!currentSessionId || currentSessionId.trim().length === 0) return false;
+        else return true;
+      }
+
+      /**
+       * Show a toast element with the given message and time (optional)
+       */
+      function showToast(message, time)
+      {
+        if(!message || message.trim().length === 0) return;
+        var toastElement = document.getElementById("toast");
+        toastElement.MaterialSnackbar.showSnackbar(
+        {
+          message: message,
+          timeout: (time ? time : 2000)
+        });
+      }
+
+      /**
+       * Validates the form fields. 
+       * Returns true if it's valid, false otherwise
+       */
+      function validateCreationForm()
+      {
+        //inputKeywords,inputURLs,selectEngines
+        if(document.getElementById("inputKeywords").value.trim().length === 0
+           || document.getElementById("inputURLs").value.trim().length === 0)
+        {
+          return false;
+        }
+        else return true;
+      }
+
+    </script>
+  </body>
+</html>
