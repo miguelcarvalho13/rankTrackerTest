@@ -3,6 +3,7 @@ A test with the GeoRanker API
 
 To run, simply do 
 ```
+npm install
 node server.js
 ```
 
